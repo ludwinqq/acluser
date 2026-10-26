@@ -11,6 +11,7 @@ import bo.quispe.edwin.domain.acluser.role.Role;
 import bo.quispe.edwin.domain.enums.RolePermissionStatus;
 import bo.quispe.edwin.domain.enums.UserPermissionStatus;
 import bo.quispe.edwin.domain.utils.PasswordEncoder;
+import bo.quispe.edwin.domain.utils.PasswordValidator;
 
 public class User {
 
@@ -46,6 +47,29 @@ public class User {
     }
 
     /**
+     * LÓGICA DE NEGOCIO: El administrador da de baja al usuario.
+     * Cambia el estado a 0 y destruye el token de refresco para expulsarlo de inmediato de la red.
+     */
+    public void deactivate() {
+        this.status = 0;
+        this.refreshTokenHash = null; // Rompe su sesión activa en caliente
+        this.failedAttempts = 0;      // Limpia contadores por si acaso
+        this.lockoutUntil = null;
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    /**
+     * LÓGICA DE NEGOCIO: El administrador reactiva o da de alta al usuario.
+     * Restaura el estado a 1 y limpia cualquier bloqueo previo.
+     */
+    public void activate() {
+        this.status = 1;
+        this.failedAttempts = 0;
+        this.lockoutUntil = null;
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    /**
      * LÓGICA DE NEGOCIO: Permite al usuario cambiar su contraseña de forma voluntaria.
      * Valida obligatoriamente que la contraseña actual coincida con la registrada en el sistema.
      */
@@ -56,8 +80,13 @@ public class User {
         }
 
         // 2. Validar que la nueva contraseña cumpla con las reglas básicas
-        if (newRawPassword == null || newRawPassword.trim().isEmpty()) {
+        /*if (newRawPassword == null || newRawPassword.trim().isEmpty()) {
             throw new IllegalArgumentException("La nueva contraseña no puede estar vacía.");
+        }*/
+        PasswordValidator.validate(newRawPassword);
+
+        if (currentRawPassword.equals(newRawPassword) || passwordEncoder.matches(newRawPassword, this.password)) {
+            throw new IllegalArgumentException("La nueva contraseña no puede ser igual a tu contraseña actual.");
         }
         
         if (currentRawPassword.equals(newRawPassword)) {
@@ -68,6 +97,7 @@ public class User {
         this.password = passwordEncoder.encode(newRawPassword);
         this.refreshTokenHash = null; // Fuerza un re-login por seguridad en otros dispositivos
         this.updatedAt = LocalDateTime.now();
+        this.requirePasswordChange = false;
     }
 
 
@@ -98,7 +128,7 @@ public class User {
         this.requirePasswordChange = true; // Obliga al cambio en su siguiente login
         this.refreshTokenHash = null;      // Cierra sesiones activas
         
-        // 🟢 NUEVO: El administrador rompe el bloqueo por intentos fallidos
+        // NUEVO: El administrador rompe el bloqueo por intentos fallidos
         this.status = 1;                   // Regresa a estado Activo
         this.failedAttempts = 0;           // Reinicia el contador a cero
         this.lockoutUntil = null;          // Elimina la fecha de castigo
@@ -156,41 +186,36 @@ public class User {
         System.out.println("contador " + failedAttempts);
         return isCorrect;
     } 
-    
-    /*public boolean authenticate(String rawPassword, PasswordEncoder passwordEncoder) {
-        if ( this.status != 1 ) {
-            return false;
-        }
-        return passwordEncoder.matches(rawPassword, this.password);
-    }*/
-
-
+  
     /**
      * LÓGICA DE NEGOCIO: Obliga al usuario a cambiar su contraseña
      * y apaga la bandera de cambio obligatorio de forma automática.
      */
     public void forcePasswordChange(String newRawPassword, PasswordEncoder passwordEncoder) {
-        if (newRawPassword == null || newRawPassword.trim().isEmpty()) {
-            throw new IllegalArgumentException("La nueva contraseña no puede estar vacía.");
+        // 1. EL CANDADO: Verificamos si la nueva contraseña es idéntica a la que ya tiene en la base de datos
+        PasswordValidator.validate(newRawPassword);
+
+        if (passwordEncoder.matches(newRawPassword, this.password)) {
+            throw new IllegalArgumentException("La nueva contraseña no puede ser igual a tu contraseña actual.");
         }
         
         this.password = passwordEncoder.encode(newRawPassword);
-        
+
         // Apagamos la bandera para que no lo vuelva a pedir en el siguiente login
         this.requirePasswordChange = false; 
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void changeStatus(Integer newStatus) {
+    /*public void changeStatus(Integer newStatus) {
         if ( newStatus == null ) {
             throw new IllegalArgumentException("Debe haber un estado.");
         }
     }
-
     public void changePassword(String newHashedPassword) {
         this.password = newHashedPassword;
         this.requirePasswordChange = false; // ¡Clave! Al cambiar la contraseña, ya no se debe exigir otro cambio.
-    }
+    }*/
+
 
     /**
      * LÓGICA DE NEGOCIO 1: CONSTRUIR LA LISTA PARA LA PANTALLA

@@ -59,13 +59,14 @@ public class UserRepositoryImpl implements UserRepository {
                 .map(UserEntity::getStatus);
     }
 
-    /*@Override
-    public void invalidateAllUserSessionsByRoleId(UUID roleId) {
-        // Ponemos en NULL el hash del refresh token para TODOS los usuarios vinculados a ese Rol de un solo golpe SQL.
-    // Al no haber coincidencia de hash en su siguiente actividad, el filtro global los expulsará.
-        entityManager.createQuery("UPDATE UserEntity u SET u.refreshTokenHash = null WHERE u.role.id = :roleId")
-            .setParameter("roleId", roleId)
-            .executeUpdate();
-    }*/
+    @Override
+    public boolean existsByUsername(String username) {
+        return userJpaRepository.existsByUsername(username);
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userJpaRepository.existsByEmail(email);
+    }
     
 }

@@ -12,5 +12,6 @@ public interface UserRepository {
     User save(User user);
     Optional<User> findByUsernameWithFullAclContext(String username);
     Optional<Integer> findStatusByUsername(String username);
-    //void invalidateAllUserSessionsByRoleId(UUID roleId);
+    boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 }

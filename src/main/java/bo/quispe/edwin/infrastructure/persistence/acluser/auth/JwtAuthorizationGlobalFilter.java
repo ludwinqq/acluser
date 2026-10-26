@@ -3,11 +3,17 @@ package bo.quispe.edwin.infrastructure.persistence.acluser.auth;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import bo.quispe.edwin.domain.acluser.user.UserRepository;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -52,6 +58,35 @@ public class JwtAuthorizationGlobalFilter extends OncePerRequestFilter {
 
         if (token != null && jwtTokenProviderAdapter.validateToken(token)) {
             usernameToVerify = jwtTokenProviderAdapter.extractUsername(token);
+            Integer status = userRepository.findStatusByUsername(usernameToVerify).orElse(null);
+            
+            if (status != null && status != 1) { 
+                clearCookies(response);
+                sendCustomForbiddenResponse(response, path);
+                return; 
+            }
+
+            // =========================================================================
+            // NUEVO: INYECTAR LOS PERMISOS DEL JWT AL CONTEXTO DE SPRING
+            // =========================================================================
+            // 1. Extraemos los claims (payload) del token de acceso
+            Claims claims = jwtTokenProviderAdapter.getClaims(token); // Asegúrate de que este método sea accesible o público en tu adaptador
+            
+            // 2. Recuperamos la lista de strings de permisos que guardamos en el login
+            List<?> rawPermissions = claims.get("permissions", List.class);
+
+            if (rawPermissions != null) {
+                // Convertimos los nombres técnicos de tus permisos (ej: "dar_baja_usuario") a GrantedAuthority de Spring
+                List<SimpleGrantedAuthority> authorities = rawPermissions.stream()
+                        .map(p -> new SimpleGrantedAuthority(p.toString()))
+                        .collect(Collectors.toList());
+
+                // 3. Creamos la autenticación oficial de Spring Security inyectándole los permisos reales
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(usernameToVerify, null, authorities);
+                        
+                // 4. Lo guardamos en el contexto del hilo de la petición actual
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
         }
 
         // 3. ESCENARIO B: El usuario está en cambio obligatorio (No tiene token, usa cabecera X-User-Username)

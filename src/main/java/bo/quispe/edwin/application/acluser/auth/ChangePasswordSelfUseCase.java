@@ -22,7 +22,7 @@ public class ChangePasswordSelfUseCase {
     @Transactional
     public void execute(String username, ChangePasswordRequestDto dto) {
         // 1. REGLA DE PROCESO: Validar que la nueva contraseña y la confirmación coincidan
-        System.out.println(username + " - " + dto.getNewPassword() + " - " + dto.getConfirmPassword());
+        //System.out.println(username + " - " + dto.getNewPassword() + " - " + dto.getConfirmPassword());
         if ( dto.getNewPassword() == null || !dto.getNewPassword().equals(dto.getConfirmPassword()) ) {
             throw new IllegalArgumentException("La nueva contraseña y su confirmación no coinciden.");
         }

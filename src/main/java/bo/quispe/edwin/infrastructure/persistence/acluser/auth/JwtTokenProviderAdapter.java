@@ -22,7 +22,7 @@ public class JwtTokenProviderAdapter implements JwtTokenProviderRepository{
     private final String SECRET_KEY_STRING = "mi_clave_secreta_super_segura_de_32_caracteres_minimo";
     private final SecretKey secretKey;
 
-    private final long ACCESS_TOKEN_VALIDITY = 5 * 60 * 1000;   // 5 minutos
+    private final long ACCESS_TOKEN_VALIDITY = 40 * 60 * 1000;   // 5 minutos
     private final long REFRESH_TOKEN_VALIDITY = 40 * 60 * 1000; // 40 minutos estrictos por actividad
 
     public JwtTokenProviderAdapter() {
@@ -74,7 +74,7 @@ public class JwtTokenProviderAdapter implements JwtTokenProviderRepository{
         }
     }
 
-    private Claims getClaims(String token) {
+    public Claims getClaims(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
